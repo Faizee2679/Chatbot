@@ -110,6 +110,14 @@
 </head>
 <body>
 
+    <div id="rooms" style="display:flex; gap:8px; padding:10px; border-bottom:1px solid #333;">
+        <button onclick="switchRoom('general')">General</button>
+        <button onclick="switchRoom('gaming')">Gaming</button>
+        <button onclick="switchRoom('tech')">Tech</button>
+        <button onclick="switchRoom('random')">Random</button>
+        <button onclick="switchRoom('support')">Support</button>
+    </div>
+
     <div id="chatContainer">
         <div id="chatBox"></div>
         <div class="input-area">
@@ -121,31 +129,62 @@
 </body>
 <script>
     let myId = Math.floor(Math.random() * 1000);
+let currentRoom = "general";
 
-    let socket = io();
-    function triggerConnection(){
-        console.log('connected');
+let socket = io();
+
+socket.on('connect', () => {
+    console.log('connected');
+
+    // join default room
+    socket.emit('join', {room: currentRoom});
+});
+
+// SWITCH ROOMS
+function switchRoom(room){
+    if(room === currentRoom) return;
+
+    socket.emit('leave', {room: currentRoom});
+
+    // clear UI
+    document.getElementById('chatBox').innerHTML = '';
+
+    currentRoom = room;
+
+    socket.emit('join', {room: room});
+}
+
+// SEND MESSAGE
+function sendMessage(){
+    let message = document.getElementById('messageBox').value;
+
+    if(message.trim() === '') return;
+
+    let data = {
+        id: myId,
+        message: message,
+        room: currentRoom
     }
-    socket.on('connect', triggerConnection)
-    function sendMessage(){
-        let message = document.getElementById('messageBox').value;
-        let data = {
-            id: myId,
-            message: message
-        }
-        socket.emit('message', data);
-        document.getElementById('messageBox').value = '';
+
+    socket.emit('message', data);
+    document.getElementById('messageBox').value = '';
+}
+
+// RECEIVE MESSAGE
+socket.on('message', (data) => {
+    let chatBox = document.getElementById('chatBox');
+
+    if(data.id === myId){
+        chatBox.insertAdjacentHTML(
+            'beforeend',
+            `<p style="align-self: flex-end; background: #007bff; border-bottom-left-radius: 18px; border-bottom-right-radius: 4px;">${data.message}</p>`
+        );
+    } else {
+        chatBox.insertAdjacentHTML('beforeend', `<p>${data.message}</p>`);
     }
-    //recieve mesage from server
-    socket.on('message', handle_message)
-        function handle_message(data){
-            console.log(data)
-            let chatBox = document.getElementById('chatBox');
-            if(data.id === myId){
-                chatBox.insertAdjacentHTML('beforeend', `<p style="align-self: flex-end; background: #007bff; border-bottom-left-radius: 18px; border-bottom-right-radius: 4px;">${data.message}</p>`);
-            } else {
-                chatBox.insertAdjacentHTML('beforeend', `<p>${data.message}</p>`);
-            }
-        }
+
+    // auto scroll
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
 </script>
 </html>
